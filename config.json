@@ -1,0 +1,37 @@
+{
+  "canvas": "auto",
+  "layout": {
+    "mode": "row",
+    "anchor": "top-left",
+    "offsetX": 0,
+    "offsetY": 0,
+    "gap": 28,
+    "padding": 12,
+    "gridColumns": 5,
+    "slot": {
+      "size": 140,
+      "borderRadius": 16
+    }
+  },
+  "style": {
+    "frameColor": "#ffffff",
+    "frameBg": "rgba(255, 255, 255, 0.25)",
+    "borderWidth": 5,
+    "talkColor": "#3ba55c",
+    "muteDim": 0.45,
+    "nameFont": "'Segoe UI', 'Noto Sans', sans-serif",
+    "nameColor": "#ffffff",
+    "nameBg": "rgba(0, 0, 0, 0.45)",
+    "roleColor": "#ffffff",
+    "roleBg": "#5865f2",
+    "offlineText": "OFFLINE"
+  },
+  "users": [
+    {
+      "id": "111111111111111111",
+      "displayName": "User 1",
+      "avatarUrl": "",
+      "roleName": "Role 1"
+    }
+  ]
+}
