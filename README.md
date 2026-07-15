@@ -90,8 +90,8 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
     "nameFont": "'Segoe UI', sans-serif",
     "nameColor": "#ffffff",     // player name text
     "nameBg": "rgba(0, 0, 0, 0.45)",         // name pill background (semi-transparent)
-    "roleColor": "#ffffff",     // role badge text
-    "roleBg": "#5865f2",        // role badge background
+    "roleColor": "#ffffff",     // role badge text (fallback; per-user roleColor wins)
+    "roleBg": "#5865f2",        // role badge background (fallback; per-user roleBg wins)
     "offlineText": "OFFLINE"
   },
   "users": [                    // max 10; order = slot order
@@ -99,7 +99,9 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
       "id": "111111111111111111",        // Discord user ID (17–20 digits)
       "displayName": "Player One",
       "avatarUrl": "https://cdn.discordapp.com/avatars/…/….png",  // optional — empty/omitted uses the user's live Discord avatar (via StreamKit)
-      "roleName": "Host"                 // optional
+      "roleName": "Host",                // optional
+      "roleColor": "#ffffff",            // optional — overrides style.roleColor for this user
+      "roleBg": "#e91e63"                // optional — overrides style.roleBg for this user
     }
   ]
 }

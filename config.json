@@ -31,7 +31,9 @@
       "id": "111111111111111111",
       "displayName": "User 1",
       "avatarUrl": "",
-      "roleName": "Role 1"
+      "roleName": "Role 1",
+      "roleColor": "",
+      "roleBg": ""
     }
   ]
 }

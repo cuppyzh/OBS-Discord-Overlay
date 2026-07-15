@@ -241,11 +241,23 @@ li.voice-state[data-userid="$($u.id)"] img.avatar {
 }
 "@
         }
+        # Per-user role colors override style.roleColor / style.roleBg;
+        # emitted as an inline style so the global .role rule stays the fallback.
+        $userRoleColor = [string](Get-Prop $u 'roleColor' '')
+        $userRoleBg = [string](Get-Prop $u 'roleBg' '')
+        $roleStyle = ''
+        if ($userRoleBg -ne '') { $roleStyle += "background: $userRoleBg;" }
+        if ($userRoleColor -ne '') {
+            if ($roleStyle -ne '') { $roleStyle += ' ' }
+            $roleStyle += "color: $userRoleColor;"
+        }
+        if ($roleStyle -ne '') { $roleStyle = ' style="' + $roleStyle + '"' }
         $userTokens = @{
             SLOT_INDEX     = $i + 1
             USER_ID        = $u.id
             DISPLAY_NAME   = [System.Net.WebUtility]::HtmlEncode([string]$u.displayName)
             ROLE_NAME      = [System.Net.WebUtility]::HtmlEncode([string](Get-Prop $u 'roleName' ''))
+            ROLE_STYLE     = $roleStyle
             AVATAR_RULE    = $avatarRule
             SLOT_X         = $slots[$i].X
             SLOT_Y         = $slots[$i].Y
