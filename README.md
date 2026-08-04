@@ -32,6 +32,7 @@ OBS scene (top to bottom):
 | `dist/<preset>/overlay.css` | Generated → paste into OBS Custom CSS |
 | `dist/<preset>/bg.html` | Generated → OBS local-file browser source (bottom layer) |
 | `dist/<preset>/fg.html` | Generated → OBS local-file browser source (top layer) |
+| `dist/<preset>/preview.html` | Generated → open in a browser to test every slot solo (offline/online/talking/muted). Preview only, not an OBS source; `preview-streamkit.html` is its StreamKit stand-in |
 | `dist/<preset>/default-overlay.css` | Config-free alternative: single StreamKit source, shows **everyone** in the channel (join order) with their Discord nickname in a pill inside the avatar. Uses style/layout settings only, ignores the users list. No bg/fg needed. |
 
 ## Quick start
@@ -63,6 +64,24 @@ Every config lives in `presets/` as `<name>.config.json` (plain `<name>.json` al
 ```
 
 New preset: copy an existing file in `presets/`, rename it, edit, run `.\generate.ps1 <name>`. An unknown name lists the available presets.
+
+Shipped presets: `default` (1 slot), `duo` (2 slots), `squad8` (8 slots, 4×2 grid, placeholder IDs — swap in real ones).
+
+### Previewing solo (`dist/<preset>/preview.html`)
+
+You don't need 7 other people to check an 8-slot layout. Every run also writes `preview.html`: it stacks the **real** generated `bg.html`, `overlay.css` and `fg.html` in the same order OBS does, over fake StreamKit markup, on a transparency checkerboard. Open it in a browser and put any slot into **offline / online / talking / muted** — what renders there is what OBS renders.
+
+```powershell
+.\generate.ps1 squad8
+start .\dist\squad8\preview.html
+```
+
+- Buttons per slot, plus all-offline / all-online / all-talking / all-muted, and a *toggle background* button to check contrast against gameplay-ish colors.
+- Placeholder avatars (numbered squares) stand in for users without an `avatarUrl`; a set `avatarUrl` is loaded for real.
+- A state can be linked or screenshotted: `preview.html?online=1,3,5,7&talking=3&mute=5` (slot numbers are 1-based, `all` works too).
+- `preview.html` and `preview-streamkit.html` are preview-only — do **not** add them to OBS.
+
+Live sanity check afterwards: put your real Discord ID in slot 1, regenerate, load the three sources in OBS, join the channel — that slot should light up exactly as the preview showed, the other slots stay OFFLINE until those users join.
 
 ### Config-free variant (`dist/<preset>/default-overlay.css`)
 

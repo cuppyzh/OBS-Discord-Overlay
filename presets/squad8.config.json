@@ -1,0 +1,95 @@
+{
+  "canvas": "auto",
+  "layout": {
+    "mode": "grid",
+    "anchor": "top-left",
+    "offsetX": 0,
+    "offsetY": 0,
+    "gap": 28,
+    "padding": 12,
+    "gridColumns": 4,
+    "slot": {
+      "size": 140,
+      "borderRadius": 16
+    }
+  },
+  "style": {
+    "frameColor": "#ffffff",
+    "frameBg": "rgba(255, 255, 255, 0.25)",
+    "borderWidth": 5,
+    "talkColor": "#3ba55c",
+    "muteDim": 0.45,
+    "nameFont": "'Segoe UI', 'Noto Sans', sans-serif",
+    "nameColor": "#ffffff",
+    "nameBg": "rgba(0, 0, 0, 0.45)",
+    "roleColor": "#ffffff",
+    "roleBg": "#5865f2",
+    "offlineText": "OFFLINE"
+  },
+  "users": [
+    {
+      "id": "111111111111111111",
+      "displayName": "Player 1",
+      "avatarUrl": "",
+      "roleName": "Carry",
+      "roleColor": "#ffffff",
+      "roleBg": "#eb459e"
+    },
+    {
+      "id": "222222222222222222",
+      "displayName": "Player 2",
+      "avatarUrl": "",
+      "roleName": "Mid",
+      "roleColor": "#ffffff",
+      "roleBg": "#5865f2"
+    },
+    {
+      "id": "333333333333333333",
+      "displayName": "Player 3",
+      "avatarUrl": "",
+      "roleName": "Offlane",
+      "roleColor": "#ffffff",
+      "roleBg": "#3ba55c"
+    },
+    {
+      "id": "444444444444444444",
+      "displayName": "Player 4",
+      "avatarUrl": "",
+      "roleName": "Support",
+      "roleColor": "#1a1a1a",
+      "roleBg": "#faa81a"
+    },
+    {
+      "id": "555555555555555555",
+      "displayName": "Player 5",
+      "avatarUrl": "",
+      "roleName": "Hard Support",
+      "roleColor": "#ffffff",
+      "roleBg": "#ed4245"
+    },
+    {
+      "id": "666666666666666666",
+      "displayName": "Player 6",
+      "avatarUrl": "",
+      "roleName": "Sub",
+      "roleColor": "#ffffff",
+      "roleBg": "#9b59b6"
+    },
+    {
+      "id": "777777777777777777",
+      "displayName": "Player 7",
+      "avatarUrl": "",
+      "roleName": "Coach",
+      "roleColor": "#1a1a1a",
+      "roleBg": "#1abc9c"
+    },
+    {
+      "id": "888888888888888888",
+      "displayName": "Player 8",
+      "avatarUrl": "",
+      "roleName": "Caster",
+      "roleColor": "#ffffff",
+      "roleBg": "#2c3e50"
+    }
+  ]
+}

@@ -95,6 +95,15 @@ function Expand-Tokens {
     return $Text
 }
 
+function New-PlaceholderAvatar {
+    # Preview-only stand-in avatar: flat colored square with the slot number,
+    # used when a user has no avatarUrl. '#' must be %23-escaped in a data URI.
+    param([int]$SlotIndex)
+    $palette = @('5865f2', 'eb459e', '3ba55c', 'faa81a', 'ed4245', '9b59b6', '1abc9c', 'e67e22', '2c3e50', '16a085')
+    $fill = $palette[($SlotIndex - 1) % $palette.Count]
+    return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23$fill'/><text x='50' y='54' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='46' font-weight='700' fill='%23ffffff'>$SlotIndex</text></svg>"
+}
+
 function ConvertTo-CssUrl {
     # Quote + escape a URL for use inside CSS url(...)
     param([string]$Url)
@@ -109,7 +118,7 @@ function Write-Utf8File {
 
 # ---------- load + validate config ----------
 
-$config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
+$config = [System.IO.File]::ReadAllText($ConfigPath) | ConvertFrom-Json
 
 $users = @(Get-Prop $config 'users' @())
 if ($users.Count -lt 1) { throw "${presetName}: 'users' must contain at least 1 user." }
@@ -237,6 +246,8 @@ for ($i = 0; $i -lt $n; $i++) {
 # ---------- render templates ----------
 
 $globalTokens = @{
+    PRESET_NAME       = $presetName
+    USER_COUNT        = $users.Count
     CANVAS_W          = $canvasW
     CANVAS_H          = $canvasH
     SLOT_SIZE         = $slotSize
@@ -265,7 +276,9 @@ $globalTokens = @{
 
 function Invoke-Render {
     param([string]$TemplatePath)
-    $template = Get-Content -Raw -Path $TemplatePath
+    # ReadAllText, not Get-Content: Windows PowerShell decodes BOM-less files as
+    # ANSI, which mangles the non-ASCII characters in the templates.
+    $template = [System.IO.File]::ReadAllText($TemplatePath)
     $match = [regex]::Match($template, '(?s)\{\{#USERS\}\}(.*?)\{\{/USERS\}\}')
     if (-not $match.Success) {
         # No per-user block: template uses only global tokens.
@@ -306,6 +319,9 @@ li.voice-state[data-userid="$($u.id)"] img.avatar {
             ROLE_NAME      = [System.Net.WebUtility]::HtmlEncode([string](Get-Prop $u 'roleName' ''))
             ROLE_STYLE     = $roleStyle
             AVATAR_RULE    = $avatarRule
+            # Preview only: StreamKit serves the live avatar, so fall back to a
+            # numbered placeholder when the preset has no avatarUrl.
+            AVATAR_SRC     = $(if ($avatarUrl -ne '') { $avatarUrl } else { New-PlaceholderAvatar ($i + 1) })
             SLOT_X         = $slots[$i].X
             SLOT_Y         = $slots[$i].Y
         }
@@ -322,10 +338,14 @@ $cssPath = Join-Path $OutDir 'overlay.css'
 $bgPath = Join-Path $OutDir 'bg.html'
 $fgPath = Join-Path $OutDir 'fg.html'
 $defaultCssPath = Join-Path $OutDir 'default-overlay.css'
+$previewPath = Join-Path $OutDir 'preview.html'
+$previewSkPath = Join-Path $OutDir 'preview-streamkit.html'
 Write-Utf8File $cssPath (Invoke-Render (Join-Path $TemplateDir 'overlay.template.css'))
 Write-Utf8File $bgPath (Invoke-Render (Join-Path $TemplateDir 'bg.template.html'))
 Write-Utf8File $fgPath (Invoke-Render (Join-Path $TemplateDir 'fg.template.html'))
 Write-Utf8File $defaultCssPath (Invoke-Render (Join-Path $TemplateDir 'default-overlay.template.css'))
+Write-Utf8File $previewPath (Invoke-Render (Join-Path $TemplateDir 'preview.template.html'))
+Write-Utf8File $previewSkPath (Invoke-Render (Join-Path $TemplateDir 'preview-streamkit.template.html'))
 
 Write-Host "Preset '$presetName' ($ConfigPath)"
 Write-Host "Generated for $n user(s), layout '$mode' ($cols x $rows), anchor '$anchor':"
@@ -333,4 +353,5 @@ Write-Host "  $bgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}
 Write-Host "  $cssPath -> paste into 'Custom CSS' of the StreamKit Browser Source, MIDDLE layer"
 Write-Host "  $fgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}, TOP layer"
 Write-Host "  $defaultCssPath -> config-free alternative: single StreamKit source, shows everyone with nickname"
+Write-Host "  $previewPath -> open in a browser to test all $n slot(s) solo (offline/online/talking/muted)"
 
