@@ -1,20 +1,31 @@
 <#
 .SYNOPSIS
-  Generates dist/overlay.css (StreamKit custom CSS) and dist/bg.html
-  (static background layer) from config.json.
+  Generates overlay.css (StreamKit custom CSS), bg.html and fg.html from a
+  preset in ./presets, into dist/<preset-name>/.
 
 .DESCRIPTION
-  Reads config.json (canvas, layout, style, users), computes a fixed slot
+  Reads a preset JSON (canvas, layout, style, users), computes a fixed slot
   position for every configured user (JSON order = slot order), and renders
-  the two templates in ./templates via simple {{TOKEN}} replacement plus a
+  the templates in ./templates via simple {{TOKEN}} replacement plus a
   repeated {{#USERS}}...{{/USERS}} block.
+
+.PARAMETER ConfigPath
+  Preset to render. Accepts a bare preset name ("duo") resolved against
+  ./presets with or without the .config.json / .json extension, or an explicit
+  path. Defaults to the "default" preset (presets/default.config.json).
+
+.PARAMETER OutDir
+  Output directory. Defaults to dist/<preset-name>, where <preset-name> is the
+  file name with the .config.json / .json extension stripped.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\generate.ps1
-  powershell -ExecutionPolicy Bypass -File .\generate.ps1 -ConfigPath other.json
+  powershell -ExecutionPolicy Bypass -File .\generate.ps1 duo
+  powershell -ExecutionPolicy Bypass -File .\generate.ps1 -ConfigPath presets\dota.json
 #>
 [CmdletBinding()]
 param(
+    [Parameter(Position = 0)]
     [string]$ConfigPath,
     [string]$TemplateDir,
     [string]$OutDir
@@ -24,9 +35,46 @@ $ErrorActionPreference = 'Stop'
 
 $scriptRoot = $PSScriptRoot
 if (-not $scriptRoot) { $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
-if (-not $ConfigPath) { $ConfigPath = Join-Path $scriptRoot 'config.json' }
+$presetDir = Join-Path $scriptRoot 'presets'
+
+function Get-PresetName {
+    # "duo.config.json" / "duo.json" -> "duo"
+    param([string]$Path)
+    $name = [System.IO.Path]::GetFileName($Path)
+    if ($name -match '\.config\.json$') { return $name.Substring(0, $name.Length - 12) }
+    return [System.IO.Path]::GetFileNameWithoutExtension($name)
+}
+
+function Resolve-ConfigPath {
+    # Turns a preset name ("duo") or a path ("presets\duo.config.json") into a real file.
+    param([string]$Name)
+
+    $candidates = @($Name)
+    if (-not [System.IO.Path]::IsPathRooted($Name)) {
+        $candidates += (Join-Path $presetDir $Name)
+        $candidates += (Join-Path $scriptRoot $Name)
+    }
+    if ([System.IO.Path]::GetExtension($Name) -eq '') {
+        foreach ($c in @($candidates)) { $candidates += "$c.config.json"; $candidates += "$c.json" }
+    }
+
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath $c -PathType Leaf) { return (Resolve-Path -LiteralPath $c).Path }
+    }
+
+    $known = @()
+    if (Test-Path $presetDir) {
+        $known = @(Get-ChildItem -Path $presetDir -Filter '*.json' | ForEach-Object { Get-PresetName $_.Name } | Sort-Object)
+    }
+    $hint = if ($known.Count) { " Available presets: $($known -join ', ')." } else { '' }
+    throw "Preset not found: '$Name'.$hint"
+}
+
+if (-not $ConfigPath) { $ConfigPath = 'default' }
+$ConfigPath = Resolve-ConfigPath $ConfigPath
+$presetName = Get-PresetName $ConfigPath
 if (-not $TemplateDir) { $TemplateDir = Join-Path $scriptRoot 'templates' }
-if (-not $OutDir) { $OutDir = Join-Path $scriptRoot 'dist' }
+if (-not $OutDir) { $OutDir = Join-Path $scriptRoot (Join-Path 'dist' $presetName) }
 
 # ---------- helpers ----------
 
@@ -61,12 +109,11 @@ function Write-Utf8File {
 
 # ---------- load + validate config ----------
 
-if (-not (Test-Path $ConfigPath)) { throw "Config not found: $ConfigPath" }
 $config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
 
 $users = @(Get-Prop $config 'users' @())
-if ($users.Count -lt 1) { throw 'config.json: "users" must contain at least 1 user.' }
-if ($users.Count -gt 10) { throw "config.json: max 10 users supported, found $($users.Count)." }
+if ($users.Count -lt 1) { throw "${presetName}: 'users' must contain at least 1 user." }
+if ($users.Count -gt 10) { throw "${presetName}: max 10 users supported, found $($users.Count)." }
 
 for ($i = 0; $i -lt $users.Count; $i++) {
     $u = $users[$i]
@@ -77,7 +124,7 @@ for ($i = 0; $i -lt $users.Count; $i++) {
     if ($avatar -ne '' -and $avatar -notmatch '^https?://') { throw "users[$i]: 'avatarUrl' must be empty or an http(s) URL." }
 }
 $ids = $users | ForEach-Object { $_.id }
-if (($ids | Select-Object -Unique).Count -ne $ids.Count) { throw 'config.json: duplicate user ids found.' }
+if (($ids | Select-Object -Unique).Count -ne $ids.Count) { throw "${presetName}: duplicate user ids found." }
 
 $canvas = Get-Prop $config 'canvas' $null
 # "canvas": "auto" (or width: "auto") sizes the canvas to the slot block,
@@ -280,8 +327,10 @@ Write-Utf8File $bgPath (Invoke-Render (Join-Path $TemplateDir 'bg.template.html'
 Write-Utf8File $fgPath (Invoke-Render (Join-Path $TemplateDir 'fg.template.html'))
 Write-Utf8File $defaultCssPath (Invoke-Render (Join-Path $TemplateDir 'default-overlay.template.css'))
 
+Write-Host "Preset '$presetName' ($ConfigPath)"
 Write-Host "Generated for $n user(s), layout '$mode' ($cols x $rows), anchor '$anchor':"
 Write-Host "  $bgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}, BOTTOM layer"
 Write-Host "  $cssPath -> paste into 'Custom CSS' of the StreamKit Browser Source, MIDDLE layer"
 Write-Host "  $fgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}, TOP layer"
 Write-Host "  $defaultCssPath -> config-free alternative: single StreamKit source, shows everyone with nickname"
+

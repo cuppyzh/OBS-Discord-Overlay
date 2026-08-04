@@ -31,9 +31,17 @@
       "id": "111111111111111111",
       "displayName": "User 1",
       "avatarUrl": "",
-      "roleName": "Role 1",
-      "roleColor": "",
-      "roleBg": ""
+      "roleName": "MT",
+      "roleColor": "#ffffff",
+      "roleBg": "#0000ff"
+    },
+    {
+      "id": "111111111111111112",
+      "displayName": "User 2",
+      "avatarUrl": "",
+      "roleName": "H1",
+      "roleColor": "#ffffff",
+      "roleBg": "#00ff00"
     }
   ]
 }

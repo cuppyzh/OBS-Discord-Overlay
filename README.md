@@ -4,15 +4,15 @@ Fixed-position Discord voice overlay for up to **10 users**, inspired by [skfix]
 Unlike the stock StreamKit overlay (which reorders participants dynamically), every user gets a **permanent slot** — with an offline placeholder, a talking glow, and a mute indicator.
 
 No JavaScript anywhere: three layered OBS browser sources do all the work.
-(There is also a **config-free variant**, `dist/default-overlay.css` — see below.)
+(There is also a **config-free variant**, `dist/<preset>/default-overlay.css` — see below.)
 
 ## How it works
 
 ```
 OBS scene (top to bottom):
-  1. Foreground browser source ← dist/fg.html (local file)
-  2. StreamKit browser source  ← streamkit.discord.com URL + dist/overlay.css as Custom CSS
-  3. Background browser source ← dist/bg.html (local file)
+  1. Foreground browser source ← dist/<preset>/fg.html (local file)
+  2. StreamKit browser source  ← streamkit.discord.com URL + dist/<preset>/overlay.css as Custom CSS
+  3. Background browser source ← dist/<preset>/bg.html (local file)
 ```
 
 - `bg.html` draws the offline placeholder per slot: semi-transparent fill + "OFFLINE" text.
@@ -26,33 +26,47 @@ OBS scene (top to bottom):
 
 | File | Purpose |
 |---|---|
-| `config.json` | Source of truth: canvas, layout, style, users |
-| `generate.ps1` | Generator: reads config, writes `dist/` |
+| `presets/<preset>.config.json` | Source of truth: canvas, layout, style, users. One file per preset; `default.config.json` is used when no preset is given |
+| `generate.ps1` | Generator: reads a preset, writes `dist/<preset>/` |
 | `templates/` | CSS/HTML templates (edit to restyle) |
-| `dist/overlay.css` | Generated → paste into OBS Custom CSS |
-| `dist/bg.html` | Generated → OBS local-file browser source (bottom layer) |
-| `dist/fg.html` | Generated → OBS local-file browser source (top layer) |
-| `dist/default-overlay.css` | Config-free alternative: single StreamKit source, shows **everyone** in the channel (join order) with their Discord nickname in a pill inside the avatar. Uses style/layout settings only, ignores the users list. No bg/fg needed. |
+| `dist/<preset>/overlay.css` | Generated → paste into OBS Custom CSS |
+| `dist/<preset>/bg.html` | Generated → OBS local-file browser source (bottom layer) |
+| `dist/<preset>/fg.html` | Generated → OBS local-file browser source (top layer) |
+| `dist/<preset>/default-overlay.css` | Config-free alternative: single StreamKit source, shows **everyone** in the channel (join order) with their Discord nickname in a pill inside the avatar. Uses style/layout settings only, ignores the users list. No bg/fg needed. |
 
 ## Quick start
 
-1. **Edit `config.json`** — add your users (see reference below). JSON order = slot order.
+1. **Edit `presets/default.config.json`** — add your users (see reference below). JSON order = slot order.
 2. **Generate:**
    ```powershell
-   powershell -ExecutionPolicy Bypass -File .\generate.ps1
+   powershell -ExecutionPolicy Bypass -File .\generate.ps1          # default preset -> dist/default/
    ```
 3. **Get your StreamKit URL:** open <https://streamkit.discord.com/overlay>, click *Install for OBS*, pick the **Voice Widget**, select your server + voice channel, and copy the URL. It looks like:
    `https://streamkit.discord.com/overlay/voice/<GUILD_ID>/<CHANNEL_ID>`
-4. **OBS — background layer:** add a *Browser* source, check **Local file**, pick `dist/bg.html`, set width/height to the size the generator printed (canvas `"auto"`) or your fixed canvas size.
-5. **OBS — StreamKit layer:** add another *Browser* source **above** the background one, paste the StreamKit URL, same width/height, and paste the full contents of `dist/overlay.css` into the **Custom CSS** box.
-6. **OBS — foreground layer:** add a third *Browser* source **above** the StreamKit one, check **Local file**, pick `dist/fg.html`, same width/height.
+4. **OBS — background layer:** add a *Browser* source, check **Local file**, pick `dist/<preset>/bg.html`, set width/height to the size the generator printed (canvas `"auto"`) or your fixed canvas size.
+5. **OBS — StreamKit layer:** add another *Browser* source **above** the background one, paste the StreamKit URL, same width/height, and paste the full contents of `dist/<preset>/overlay.css` into the **Custom CSS** box.
+6. **OBS — foreground layer:** add a third *Browser* source **above** the StreamKit one, check **Local file**, pick `dist/<preset>/fg.html`, same width/height.
 7. Join the voice channel — your avatar fills your slot. Tip: group the three sources in OBS to move/scale them as one.
 
 Re-run `generate.ps1` after any config change, then refresh all three browser sources (or paste the new CSS).
 
-### Config-free variant (`dist/default-overlay.css`)
+### Presets
 
-No fixed slots, no offline placeholders: one *Browser* source with the StreamKit URL, paste `dist/default-overlay.css` into its Custom CSS, done. Shows everyone in the channel in join order, nickname in a pill inside the avatar, same talking/mute styling. Flow follows `layout.mode` (`row`, `column`, or `grid` wrapping at `gridColumns`); the `users` list is ignored.
+Every config lives in `presets/` as `<name>.config.json` (plain `<name>.json` also works). The generator writes to `dist/<name>/`, so each preset keeps its own set of files and OBS scenes can point at different presets.
+
+```powershell
+.\generate.ps1                       # presets/default.config.json -> dist/default/
+.\generate.ps1 duo                   # presets/duo.config.json     -> dist/duo/
+.\generate.ps1 dota                  # presets/dota.json           -> dist/dota/
+.\generate.ps1 -ConfigPath C:\x.json # explicit path               -> dist/x/
+.\generate.ps1 duo -OutDir .\out     # override the output dir
+```
+
+New preset: copy an existing file in `presets/`, rename it, edit, run `.\generate.ps1 <name>`. An unknown name lists the available presets.
+
+### Config-free variant (`dist/<preset>/default-overlay.css`)
+
+No fixed slots, no offline placeholders: one *Browser* source with the StreamKit URL, paste `dist/<preset>/default-overlay.css` into its Custom CSS, done. Shows everyone in the channel in join order, nickname in a pill inside the avatar, same talking/mute styling. Flow follows `layout.mode` (`row`, `column`, or `grid` wrapping at `gridColumns`); the `users` list is ignored.
 
 ## Getting user data
 
@@ -60,7 +74,7 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
 - **Avatar URL (optional):** right-click the user's avatar (profile popout) → *Copy image address*, or use `https://cdn.discordapp.com/avatars/<USER_ID>/<AVATAR_HASH>.png?size=256`.
   ⚠ Discord CDN avatar URLs change occasionally — refresh them when an avatar stops loading. Leave empty/omit to use the user's live Discord avatar from StreamKit instead.
 
-## config.json reference
+## Preset file reference
 
 ```jsonc
 {
@@ -111,7 +125,7 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
 
 - The CSS targets StreamKit's **stable class names** (verified against the live bundle): `ul.voice_states > li.voice_state[data-userid] > img.voice_avatar`, with li state classes `wrapper_speaking`, `mute`, `deaf`, `self_mute`, `self_deaf`. No `:has()` — works on older OBS browser engines too.
 - **All three browser sources must be set to the canvas size** — the generator prints it after each run. OBS defaults new browser sources to 800×600; at the wrong size slots can sit outside the visible area and the source looks blank.
-- Users in the channel but **not in `config.json` are hidden** from the overlay.
+- Users in the channel but **not in the preset's `users` list are hidden** from the overlay.
 - If a future StreamKit redesign renames the classes and a state stops working:
   1. In OBS, right-click the StreamKit source → *Interact*, or open the StreamKit URL in Chrome and use DevTools.
   2. Inspect a participant while speaking / muted and note the classes on the `<li>` and `<img>` elements.
