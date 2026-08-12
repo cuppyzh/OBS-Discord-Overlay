@@ -116,6 +116,34 @@ function Write-Utf8File {
     [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+function New-AxisValue {
+    # One slot coordinate as a complete CSS length, resolved against the
+    # browser source viewport rather than the canvas: the alignment constant
+    # is folded into every slot, so no wrapper element is needed and the three
+    # layers stay in register whatever width/height OBS is given.
+    #   Step  distance of this slot from the start of the block
+    #   Pad   edge inset; an edge concept, so it is skipped when centering
+    param([string]$Align, [int]$Step, [int]$BlockSize, [int]$Pad, [int]$Offset)
+    switch ($Align) {
+        { $_ -in 'left', 'top' } { return "$($Pad + $Offset + $Step)px" }
+        'center' {
+            $k = $Offset + $Step - [int]($BlockSize / 2)
+            if ($k -lt 0) { return "calc(50% - $([Math]::Abs($k))px)" }
+            return "calc(50% + ${k}px)"
+        }
+        { $_ -in 'right', 'bottom' } { return "calc(100% - $($BlockSize + $Pad - $Offset - $Step)px)" }
+    }
+}
+
+function ConvertTo-FlexAlign {
+    param([string]$Align)
+    switch ($Align) {
+        'center' { return 'center' }
+        { $_ -in 'right', 'bottom' } { return 'flex-end' }
+        default { return 'flex-start' }
+    }
+}
+
 # ---------- load + validate config ----------
 
 $config = [System.IO.File]::ReadAllText($ConfigPath) | ConvertFrom-Json
@@ -150,17 +178,46 @@ if (-not $canvasAuto) {
     $canvasW = [int](Get-Prop $canvas 'width' 1920)
     $canvasH = [int](Get-Prop $canvas 'height' 1080)
 }
+# Preview only: the size preview.html pretends the OBS browser source is, so
+# xalignment/yalignment are visible there. A fixed canvas is its own preview.
+$previewW = [int](Get-Prop $canvas 'previewWidth' 1920)
+$previewH = [int](Get-Prop $canvas 'previewHeight' 1080)
 
 $layout = Get-Prop $config 'layout' $null
 $mode = [string](Get-Prop $layout 'mode' 'row')
 if ($mode -notin @('row', 'column', 'grid')) { throw "layout.mode must be 'row', 'column' or 'grid' (got '$mode')." }
-$anchor = [string](Get-Prop $layout 'anchor' 'bottom-center')
 $offsetX = [int](Get-Prop $layout 'offsetX' 0)
 $offsetY = [int](Get-Prop $layout 'offsetY' 0)
 $gap = [int](Get-Prop $layout 'gap' 24)
 $padding = [int](Get-Prop $layout 'padding' 12)
 $gridColumns = [int](Get-Prop $layout 'gridColumns' 5)
 if ($gridColumns -lt 1) { throw 'layout.gridColumns must be >= 1.' }
+
+# Alignment of the slot block inside the browser source viewport.
+# layout.anchor is the superseded spelling, still honored per axis when the
+# xalignment / yalignment it maps to are absent.
+$anchor = [string](Get-Prop $layout 'anchor' 'top-left')
+$hAlign = 'center'; $vAlign = 'center'
+foreach ($part in $anchor.ToLower().Split('-')) {
+    switch ($part) {
+        'left' { $hAlign = 'left' }
+        'right' { $hAlign = 'right' }
+        'top' { $vAlign = 'top' }
+        'bottom' { $vAlign = 'bottom' }
+        'center' { }
+        default { throw "layout.anchor: unknown token '$part' (use combinations of top/bottom/left/right/center)." }
+    }
+}
+$xalignment = [string](Get-Prop $layout 'xalignment' '')
+if ($xalignment -ne '') {
+    $hAlign = $xalignment.ToLower()
+    if ($hAlign -notin @('left', 'center', 'right')) { throw "layout.xalignment must be 'left', 'center' or 'right' (got '$xalignment')." }
+}
+$yalignment = [string](Get-Prop $layout 'yalignment' '')
+if ($yalignment -ne '') {
+    $vAlign = $yalignment.ToLower()
+    if ($vAlign -notin @('top', 'center', 'bottom')) { throw "layout.yalignment must be 'top', 'center' or 'bottom' (got '$yalignment')." }
+}
 
 $slot = Get-Prop $layout 'slot' $null
 $slotSize = [int](Get-Prop $slot 'size' 140)
@@ -201,49 +258,35 @@ if ($canvasAuto) {
     # and the mute badge, which stick out past the slot edge.
     $canvasW = $blockW + 2 * $padding
     $canvasH = $blockH + 2 * $padding
-    $originX = $padding
-    $originY = $padding
-} else {
-    if ($blockW -gt $canvasW -or $blockH -gt $canvasH) {
-        Write-Warning "Layout block ${blockW}x${blockH} exceeds canvas ${canvasW}x${canvasH}; slots will overflow. Reduce slot size or gap."
-    }
-
-    $hAlign = 'center'; $vAlign = 'center'
-    foreach ($part in $anchor.ToLower().Split('-')) {
-        switch ($part) {
-            'left' { $hAlign = 'left' }
-            'right' { $hAlign = 'right' }
-            'top' { $vAlign = 'top' }
-            'bottom' { $vAlign = 'bottom' }
-            'center' { }
-            default { throw "layout.anchor: unknown token '$part' (use combinations of top/bottom/left/right/center)." }
-        }
-    }
-    switch ($hAlign) {
-        'left' { $originX = 0 }
-        'center' { $originX = [int](($canvasW - $blockW) / 2) }
-        'right' { $originX = $canvasW - $blockW }
-    }
-    switch ($vAlign) {
-        'top' { $originY = 0 }
-        'center' { $originY = [int](($canvasH - $blockH) / 2) }
-        'bottom' { $originY = $canvasH - $blockH }
-    }
-    $originX += $offsetX
-    $originY += $offsetY
+} elseif ($blockW -gt $canvasW -or $blockH -gt $canvasH) {
+    Write-Warning "Layout block ${blockW}x${blockH} exceeds canvas ${canvasW}x${canvasH}; slots will overflow. Reduce slot size or gap."
 }
 
+# The preview stage stands in for the OBS browser source.
+$stageW = $(if ($canvasAuto) { $previewW } else { $canvasW })
+$stageH = $(if ($canvasAuto) { $previewH } else { $canvasH })
+
+# Coordinates are CSS lengths, not numbers: 'center' and 'right'/'bottom'
+# resolve against the viewport at render time, so the same files work at any
+# browser source size.
 $slots = @()
 for ($i = 0; $i -lt $n; $i++) {
     $r = [int][Math]::Floor($i / $cols)
     $c = $i % $cols
     $slots += [pscustomobject]@{
-        X = $originX + $c * ($cellW + $gap)
-        Y = $originY + $r * ($cellH + $gap)
+        X = New-AxisValue $hAlign ($c * ($cellW + $gap)) $blockW $padding $offsetX
+        Y = New-AxisValue $vAlign ($r * ($cellH + $gap)) $blockH $padding $offsetY
     }
 }
 
 # ---------- render templates ----------
+
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
+# preview.html scales the stage down so a full 1920-wide source still fits.
+$stageScale = [Math]::Min(1.0, 1100 / [double]$stageW)
+# In column mode the flex main axis is vertical, so the two alignments swap.
+$mainAlign = $(if ($mode -eq 'column') { $vAlign } else { $hAlign })
+$crossAlign = $(if ($mode -eq 'column') { $hAlign } else { $vAlign })
 
 $globalTokens = @{
     PRESET_NAME       = $presetName
@@ -269,6 +312,18 @@ $globalTokens = @{
     FLEX_DIRECTION    = $(if ($mode -eq 'column') { 'column' } else { 'row' })
     FLEX_WRAP         = $(if ($mode -eq 'grid') { 'wrap' } else { 'nowrap' })
     LIST_MAX_WIDTH    = $(if ($mode -eq 'grid') { "$($gridColumns * $cellW + ($gridColumns - 1) * $gap + 2 * $padding)px" } else { 'none' })
+    STAGE_W           = $stageW
+    STAGE_H           = $stageH
+    STAGE_SCALE       = $stageScale.ToString('0.####', $inv)
+    STAGE_SCALED_W    = [int]($stageW * $stageScale)
+    STAGE_SCALED_H    = [int]($stageH * $stageScale)
+    JUSTIFY_CONTENT   = ConvertTo-FlexAlign $mainAlign
+    ALIGN_ITEMS       = ConvertTo-FlexAlign $crossAlign
+    LIST_MARGIN       = $(switch ($hAlign) {
+            'center' { '0 auto' }
+            'right' { '0 0 0 auto' }
+            default { '0 auto 0 0' }
+        })
     NAME_FONT_SIZE    = [Math]::Max(11, [int]($slotSize * 0.12))
     ROLE_FONT_SIZE    = [Math]::Max(10, [int]($slotSize * 0.09))
     OFFLINE_FONT_SIZE = [Math]::Max(10, [int]($slotSize * 0.12))
@@ -348,10 +403,12 @@ Write-Utf8File $previewPath (Invoke-Render (Join-Path $TemplateDir 'preview.temp
 Write-Utf8File $previewSkPath (Invoke-Render (Join-Path $TemplateDir 'preview-streamkit.template.html'))
 
 Write-Host "Preset '$presetName' ($ConfigPath)"
-Write-Host "Generated for $n user(s), layout '$mode' ($cols x $rows), anchor '$anchor':"
-Write-Host "  $bgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}, BOTTOM layer"
+Write-Host "Generated for $n user(s), layout '$mode' ($cols x $rows), aligned $hAlign/${vAlign}:"
+Write-Host "  block is ${blockW}x${blockH}px plus ${padding}px padding; give all three sources the SAME size,"
+Write-Host "  at least that big -- ${stageW}x${stageH} recommended. The block aligns itself inside it."
+Write-Host "  $bgPath  -> OBS Browser Source (Local file), BOTTOM layer"
 Write-Host "  $cssPath -> paste into 'Custom CSS' of the StreamKit Browser Source, MIDDLE layer"
-Write-Host "  $fgPath  -> OBS Browser Source (Local file), ${canvasW}x${canvasH}, TOP layer"
+Write-Host "  $fgPath  -> OBS Browser Source (Local file), TOP layer"
 Write-Host "  $defaultCssPath -> config-free alternative: single StreamKit source, shows everyone with nickname"
 Write-Host "  $previewPath -> open in a browser to test all $n slot(s) solo (offline/online/talking/muted)"
 

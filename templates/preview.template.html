@@ -38,13 +38,20 @@
   header p { margin: 0; color: var(--ui-dim); }
   header code { color: var(--ui-fg); }
 
-  /* Checkerboard = OBS transparency. The stack sits on top of it at the
-     exact canvas size, so what you see is what the sources render. */
+  /* Checkerboard = OBS transparency. The stage is the browser source, at its
+     real pixel size (so xalignment/yalignment land where they will in OBS),
+     then scaled down as a whole to fit this page. */
   .stage-wrap { padding: 18px; }
+  .stage-fit {
+    width: {{STAGE_SCALED_W}}px;
+    height: {{STAGE_SCALED_H}}px;
+  }
   .stage {
     position: relative;
-    width: {{CANVAS_W}}px;
-    height: {{CANVAS_H}}px;
+    width: {{STAGE_W}}px;
+    height: {{STAGE_H}}px;
+    transform: scale({{STAGE_SCALE}});
+    transform-origin: top left;
     background-color: #3a3f47;
     background-image:
       linear-gradient(45deg, #2b3037 25%, transparent 25%, transparent 75%, #2b3037 75%),
@@ -60,8 +67,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: {{CANVAS_W}}px;
-    height: {{CANVAS_H}}px;
+    width: 100%;
+    height: 100%;
     border: 0;
     background: transparent;
   }
@@ -100,15 +107,17 @@
 <body>
 <header>
   <h1>Preview — preset <code>{{PRESET_NAME}}</code></h1>
-  <p>{{USER_COUNT}} slot(s) · canvas {{CANVAS_W}}×{{CANVAS_H}} · same three layers OBS uses, stacked over a transparency checkerboard.</p>
+  <p>{{USER_COUNT}} slot(s) · browser source {{STAGE_W}}×{{STAGE_H}} shown at {{STAGE_SCALE}}× · block {{CANVAS_W}}×{{CANVAS_H}} · same three layers OBS uses, stacked over a transparency checkerboard.</p>
 </header>
 
 <div class="stage-wrap">
+  <div class="stage-fit">
   <div class="stage" id="stage">
     <iframe class="layer-bg" src="bg.html" title="background layer"></iframe>
     <!-- src is rewritten below so preview.html?online=all&talking=2 works too -->
     <iframe class="layer-sk" id="sk" src="preview-streamkit.html" title="StreamKit stand-in"></iframe>
     <iframe class="layer-fg" src="fg.html" title="foreground layer"></iframe>
+  </div>
   </div>
 </div>
 

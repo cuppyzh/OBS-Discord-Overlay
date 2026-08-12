@@ -26,10 +26,19 @@ body {
   flex-direction: {{FLEX_DIRECTION}};
   flex-wrap: {{FLEX_WRAP}};
   gap: {{GAP}}px;
-  margin: 0;
+  /* The list fills the browser source and places itself inside it per
+     layout.xalignment / layout.yalignment. In grid mode max-width caps it at
+     gridColumns, so the margin is what positions that capped box. */
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  margin: {{LIST_MARGIN}};
   padding: {{PADDING}}px;
   list-style: none;
   max-width: {{LIST_MAX_WIDTH}};
+  justify-content: {{JUSTIFY_CONTENT}};
+  align-items: {{ALIGN_ITEMS}};
+  align-content: {{ALIGN_ITEMS}};
 }
 
 li.voice_state,
@@ -119,6 +128,10 @@ li.voice_state.self_deaf::after {
   height: 30%;
   min-width: 22px;
   min-height: 22px;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23ed4245'/><path fill='%23fff' d='M12 5.5a2.3 2.3 0 0 1 2.3 2.3v3.1l-4.6-4.6A2.3 2.3 0 0 1 12 5.5zm5.2 6.1h-1.4l1.6 1.6c.2-.5.3-1 .3-1.6zM6.8 11.6c0 2.9 2.3 5.2 5.2 5.2.6 0 1.2-.1 1.7-.3l1.3 1.3c-.7.4-1.5.6-2.3.7v2h-1.4v-2c-3-.4-5.2-2.9-5.2-5.9v-1h.7zM5.6 4.2 19.8 18.4l-1 1L4.6 5.2l1-1z'/></svg>") center / contain no-repeat;
+  /* Mic-off glyph, drawn symmetric about the circle centre (12,12): capsule +
+     bracket + stand span y 3.7-20.3, the slash runs corner to corner, so the
+     mark stays optically centred. The slash is stroked twice — wide in the
+     badge red, then thin in white — to knock a gap out of the mic below it. */
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23ed4245'/><g fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 4.6a2.4 2.4 0 0 1 2.4 2.4v4.6a2.4 2.4 0 0 1-4.8 0V7A2.4 2.4 0 0 1 12 4.6z'/><path d='M6.9 11.2a5.1 5.1 0 0 0 10.2 0'/><path d='M12 16.3v3.1'/></g><path d='M5.2 5.2 18.8 18.8' fill='none' stroke='%23ed4245' stroke-width='4.2' stroke-linecap='round'/><path d='M5.2 5.2 18.8 18.8' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-linecap='round'/></svg>") center / contain no-repeat;
   z-index: 2;
 }

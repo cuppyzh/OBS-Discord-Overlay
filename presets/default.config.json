@@ -2,7 +2,8 @@
   "canvas": "auto",
   "layout": {
     "mode": "row",
-    "anchor": "top-left",
+    "xalignment": "left",
+    "yalignment": "top",
     "offsetX": 0,
     "offsetY": 0,
     "gap": 28,

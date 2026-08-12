@@ -44,12 +44,25 @@ OBS scene (top to bottom):
    ```
 3. **Get your StreamKit URL:** open <https://streamkit.discord.com/overlay>, click *Install for OBS*, pick the **Voice Widget**, select your server + voice channel, and copy the URL. It looks like:
    `https://streamkit.discord.com/overlay/voice/<GUILD_ID>/<CHANNEL_ID>`
-4. **OBS — background layer:** add a *Browser* source, check **Local file**, pick `dist/<preset>/bg.html`, set width/height to the size the generator printed (canvas `"auto"`) or your fixed canvas size.
+4. **OBS — background layer:** add a *Browser* source, check **Local file**, pick `dist/<preset>/bg.html`, set width/height per [Sizing the OBS Browser Sources](#sizing-the-obs-browser-sources) (1920×1080 is the safe default).
 5. **OBS — StreamKit layer:** add another *Browser* source **above** the background one, paste the StreamKit URL, same width/height, and paste the full contents of `dist/<preset>/overlay.css` into the **Custom CSS** box.
 6. **OBS — foreground layer:** add a third *Browser* source **above** the StreamKit one, check **Local file**, pick `dist/<preset>/fg.html`, same width/height.
 7. Join the voice channel — your avatar fills your slot. Tip: group the three sources in OBS to move/scale them as one.
 
 Re-run `generate.ps1` after any config change, then refresh all three browser sources (or paste the new CSS).
+
+### Sizing the OBS Browser Sources
+
+The slot block is positioned **inside** the browser source by `layout.xalignment` / `layout.yalignment`, so the size you type into the browser source dialog is the frame it aligns against.
+
+**Recommended: give all three sources 1920×1080** (or whatever *Settings → Video → Base (Canvas) Resolution* says), leave them at position `0, 0`, and don't scale them. Then the alignments mean what they say — `"center"` is the middle of your stream, `"bottom"` is the bottom of it — and nothing has to be dragged into place by hand.
+
+- **All three sources must be the same size as each other.** That shared box is the alignment frame; mismatched sizes pull the border, avatar and name layers out of register.
+- **Height matters more than people expect.** OBS defaults new browser sources to 800×600, and the generator prints a block height that is often small (e.g. 152px for a single row). If you size a source to the block height, there is no vertical room left and `"top"`, `"center"` and `"bottom"` all render identically. Height must cover the distance you want to push the block down — full canvas height for `"center"` or `"bottom"`.
+- Width follows the same rule: at least the block width, full canvas width for `"center"` / `"right"`.
+- **Prefer positioning by hand?** Size the sources to the block instead (the dimensions the generator prints), keep `xalignment: "left"` / `yalignment: "top"`, and drag the group in OBS. That's the old behavior and still works.
+- **Resizing needs no re-run.** The coordinates are percentage-based, so changing all three sources to e.g. 2560×1440 re-aligns the block on refresh. Only changes to the block itself (slot size, gap, padding, user count, mode) need `generate.ps1` again.
+- Set `canvas.previewWidth` / `previewHeight` in the preset to the size you used in OBS so `preview.html` frames it the same way (defaults to 1920×1080).
 
 ### Presets
 
@@ -97,17 +110,24 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
 
 ```jsonc
 {
-  "canvas": "auto",             // "auto": canvas hugs the slot block (top-left origin) so the
-                                // OBS sources can be moved/scaled freely; the generator prints
-                                // the resulting source size. Or fixed: { "width": 1920, "height": 1080 }
-                                // — must match all OBS source sizes; anchor/offset position the block.
+  "canvas": "auto",             // "auto": the generator reports the block size and nothing more —
+                                // the sources are sized in OBS and the block aligns inside them.
+                                // Or fixed: { "width": 1920, "height": 1080 } to also drive
+                                // the preview stage. Either way the OBS source size is what
+                                // xalignment/yalignment resolve against at render time.
+                                // Optional, auto only: "previewWidth" / "previewHeight"
+                                // (default 1920×1080) — the size preview.html mimics.
   "layout": {
     "mode": "row",              // "row" | "column" | "grid"
-    "anchor": "top-left",       // fixed canvas only: combos of top/bottom/left/right/center
-    "offsetX": 0,               // fixed canvas only: px shift after anchoring
+    "xalignment": "left",       // "left" | "center" | "right"  — default "left"
+    "yalignment": "top",        // "top" | "center" | "bottom"  — default "top"
+                                // Both align the block inside the OBS browser source; see
+                                // "Sizing the OBS Browser Sources" above.
+    "offsetX": 0,               // px nudge applied after aligning
     "offsetY": 0,
     "gap": 28,                  // px between slots
-    "padding": 12,              // auto canvas only: margin around the block (room for glow/badge)
+    "padding": 12,              // inset from the aligned edge (room for glow/badge);
+                                // ignored on an axis set to "center"
     "gridColumns": 5,           // grid mode only
     "slot": {
       "size": 140,              // avatar box, px
@@ -140,10 +160,12 @@ No fixed slots, no offline placeholders: one *Browser* source with the StreamKit
 }
 ```
 
+`layout.anchor` (`"top-left"`, `"bottom-center"`, …) is the superseded spelling of the same thing. It is still honored per axis when `xalignment` / `yalignment` are absent, so older presets keep working, but new ones should use the two keys above.
+
 ## Requirements & limitations
 
 - The CSS targets StreamKit's **stable class names** (verified against the live bundle): `ul.voice_states > li.voice_state[data-userid] > img.voice_avatar`, with li state classes `wrapper_speaking`, `mute`, `deaf`, `self_mute`, `self_deaf`. No `:has()` — works on older OBS browser engines too.
-- **All three browser sources must be set to the canvas size** — the generator prints it after each run. OBS defaults new browser sources to 800×600; at the wrong size slots can sit outside the visible area and the source looks blank.
+- **All three browser sources must be set to the same size**, and at least as large as the block the generator prints. OBS defaults new browser sources to 800×600; too small and slots sit outside the visible area, making the source look blank or cropped. See [Sizing the OBS Browser Sources](#sizing-the-obs-browser-sources).
 - Users in the channel but **not in the preset's `users` list are hidden** from the overlay.
 - If a future StreamKit redesign renames the classes and a state stops working:
   1. In OBS, right-click the StreamKit source → *Interact*, or open the StreamKit URL in Chrome and use DevTools.
